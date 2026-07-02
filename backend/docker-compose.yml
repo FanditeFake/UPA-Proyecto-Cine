@@ -1,0 +1,20 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: cinemax_mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: cinemax_db
+      MYSQL_USER: cinemax_user
+      MYSQL_PASSWORD: cinemax_pass
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # El script se ejecuta AUTOMÁTICAMENTE la primera vez que se crea el contenedor
+      - ./database/cinemax.sql:/docker-entrypoint-initdb.d/cinemax.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+volumes:
+  mysql_data:
