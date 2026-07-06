@@ -75,8 +75,34 @@ Las rutas protegidas requieren el header `Authorization: Bearer <token>`.
 ### Administración (requieren token + rol administrador)
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/api/admin/dashboard` | Indicadores + ventas por película/sala/día |
-| GET | `/api/admin/ventas` | Listado completo de ventas |
+| GET | `/api/admin/dashboard` | Indicadores + tablas resumen + **datos de las gráficas** |
+| GET | `/api/admin/ventas` | Listado de ventas. Filtro opcional `?desde=YYYY-MM-DD&hasta=YYYY-MM-DD` |
+
+**Datos de gráficas** — `/api/admin/dashboard` devuelve un objeto `graficas`
+listo para Chart.js (cada gráfica trae `labels` + arreglos numéricos):
+
+```json
+{
+  "graficas": {
+    "ventasPorDia":     { "labels": ["2026-07-06"], "ingresos": [136], "boletos": [2] },
+    "ventasPorPelicula":{ "labels": ["Guardianes del Código"], "boletos": [2], "ingresos": [136] },
+    "ventasPorSala":    { "labels": ["Sala 1"], "boletos": [2], "ingresos": [136] }
+  }
+}
+```
+
+Ejemplo de uso en el frontend (Chart.js):
+
+```js
+const { graficas } = await (await fetch('/api/admin/dashboard', { headers:{ Authorization:`Bearer ${token}` } })).json();
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: graficas.ventasPorDia.labels,
+    datasets: [{ label: 'Ingresos por día', data: graficas.ventasPorDia.ingresos }],
+  },
+});
+```
 
 ### Ejemplo con curl
 
@@ -146,6 +172,13 @@ backend/
   una **transacción**. El índice `UNIQUE(funcion_id, asiento_id)` impide vender
   el mismo asiento dos veces en la misma función (responde `409`).
 - **Máximo 10 boletos** por compra.
+- **Manejo de fechas sin confusión:** las fechas se leen de MySQL como texto
+  (`dateStrings`) con zona horaria fija (`-06:00`), así el horario guardado es
+  el que se muestra, sin que JavaScript lo "corra" a UTC. Los reportes por día
+  se formatean en SQL como `YYYY-MM-DD`.
+- **Validación de fechas:** el filtro `?desde&hasta` de `/api/admin/ventas`
+  valida el formato (`YYYY-MM-DD`), que la fecha exista en el calendario
+  (rechaza `2026-13-40`) y que `desde` no sea posterior a `hasta` (responde `400`).
 
 ## 7. Usuarios de prueba
 

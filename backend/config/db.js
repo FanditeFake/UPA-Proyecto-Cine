@@ -20,6 +20,20 @@ const sequelize = new Sequelize(
     port: process.env.DB_PORT || 3306,
     dialect: 'mysql',
     logging: false, // pon console.log para ver las queries que genera Sequelize
+
+    // Zona horaria del centro de México. Se usa al ESCRIBIR fechas para que
+    // NOW()/CURRENT_TIMESTAMP queden en hora local y no en UTC.
+    timezone: process.env.DB_TIMEZONE || '-06:00',
+
+    dialectOptions: {
+      // Devuelve DATETIME/DATE/TIMESTAMP como TEXTO tal cual está guardado
+      // (ej: "2026-07-06 19:30:00"). Evita que JavaScript los convierta a UTC
+      // y "corra" el día u hora. Así el horario que se guarda es el que se
+      // muestra, sin confusiones de zona horaria.
+      dateStrings: true,
+      typeCast: true,
+    },
+
     define: {
       // Nuestras tablas NO usan las columnas createdAt/updatedAt de Sequelize.
       // El esquema lo define cinemax.sql, así que desactivamos los timestamps

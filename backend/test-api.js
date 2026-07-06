@@ -103,6 +103,28 @@ async function api(metodo, ruta, { token, body } = {}) {
   check('Dashboard admin → 200', dash.status === 200 && !!dash.json.indicadores);
   check('Dashboard trae ventas por película', Array.isArray(dash.json.porPelicula));
 
+  // 10b. Gráficas listas para Chart.js
+  const g = dash.json.graficas;
+  check('Dashboard incluye graficas', !!g && !!g.ventasPorDia && !!g.ventasPorPelicula && !!g.ventasPorSala);
+  check('graficas.ventasPorDia trae labels y datos', Array.isArray(g?.ventasPorDia?.labels) && Array.isArray(g?.ventasPorDia?.ingresos));
+  const diasOrdenados = (g?.ventasPorDia?.labels || []);
+  check('Los días de la gráfica están en formato YYYY-MM-DD', diasOrdenados.every(d => /^\d{4}-\d{2}-\d{2}$/.test(d)), `ej: ${diasOrdenados[0]}`);
+  check('Los días están en orden cronológico', JSON.stringify(diasOrdenados) === JSON.stringify([...diasOrdenados].sort()));
+
+  // 10c. Ventas con filtro de fechas válido → 200
+  const ventasFiltradas = await api('GET', '/api/admin/ventas?desde=2020-01-01&hasta=2100-12-31', { token: tokenAdmin });
+  check('Ventas con rango válido → 200', ventasFiltradas.status === 200 && Array.isArray(ventasFiltradas.json.ventas));
+
+  // 10d. Validaciones de fecha (no se confunde con fechas inválidas)
+  const fechaInvalida = await api('GET', '/api/admin/ventas?desde=2026-13-40', { token: tokenAdmin });
+  check('Fecha inexistente (2026-13-40) → 400', fechaInvalida.status === 400, `status ${fechaInvalida.status}`);
+
+  const formatoMalo = await api('GET', '/api/admin/ventas?desde=06/07/2026', { token: tokenAdmin });
+  check('Formato de fecha incorrecto → 400', formatoMalo.status === 400, `status ${formatoMalo.status}`);
+
+  const rangoInvertido = await api('GET', '/api/admin/ventas?desde=2026-12-31&hasta=2026-01-01', { token: tokenAdmin });
+  check('Rango invertido (desde > hasta) → 400', rangoInvertido.status === 400, `status ${rangoInvertido.status}`);
+
   // 11. Dashboard como cliente → 403
   const dashCliente = await api('GET', '/api/admin/dashboard', { token: tokenCliente });
   check('Dashboard con rol cliente → 403', dashCliente.status === 403, `status ${dashCliente.status}`);

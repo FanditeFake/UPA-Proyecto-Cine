@@ -20,12 +20,16 @@ const { Pelicula, Funcion, Sala, Usuario, Boleto } = require('./models');
 
   // 3. Consulta con relaciones: funciones con su película y sala
   const funciones = await Funcion.findAll({
-    include: [Pelicula, Sala],
+    include: [
+      { model: Pelicula, as: 'pelicula' },
+      { model: Sala, as: 'sala' },
+    ],
     limit: 3,
   });
   console.log(`\n🕐 Funciones (mostrando ${funciones.length}):`);
   funciones.forEach(f => {
-    console.log(`   - ${f.pelicula.titulo} en ${f.sala.nombre} @ ${f.horario.toLocaleString('es-MX')}`);
+    // horario se lee como texto "YYYY-MM-DD HH:mm:ss" (sin conversión de zona)
+    console.log(`   - ${f.pelicula.titulo} en ${f.sala.nombre} @ ${f.horario}`);
   });
 
   // 4. Login de prueba (buscar usuario por correo)
