@@ -1,11 +1,10 @@
 # Backend — CineMax
 
-Backend del sistema de compra de boletos.
-**Stack:** Node.js + Express + Sequelize + MySQL 8 (en Docker).
+API REST del sistema de compra de boletos.
+**Stack:** Node.js + Express + Sequelize + MySQL 8 (en Docker) + JWT.
 
-> La **base de datos y la capa de datos ya están listas y probadas**.
-> Esta guía explica cómo arrancar el entorno y cómo usar los modelos
-> desde las rutas/controladores del backend.
+> El backend está **completo y probado** (18/18 pruebas de la API pasan).
+> Esta guía explica cómo arrancarlo, los endpoints disponibles y cómo usarlo.
 
 ---
 
@@ -14,7 +13,7 @@ Backend del sistema de compra de boletos.
 - [Node.js](https://nodejs.org/) 18 o superior
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (para la base de datos)
 
-## 2. Puesta en marcha (primera vez)
+## 2. Puesta en marcha
 
 ```bash
 cd backend
@@ -29,100 +28,133 @@ cp .env.example .env
 # 3. Levantar la base de datos (crea el contenedor y carga cinemax.sql)
 docker compose up -d
 
-# 4. Comprobar que la capa de datos conecta
-node test-db.js
+# 4. Arrancar el servidor
+npm start
 ```
 
-Si `node test-db.js` imprime las películas y "✅ Todo funciona", el entorno está listo.
+El servidor queda en **http://localhost:4000**.
+Prueba rápida: abre esa URL y debe responder `{ "ok": true, "mensaje": "API CineMax funcionando" }`.
 
-## 3. Estructura del backend
+## 3. Probar la API
+
+Con el servidor corriendo, en otra terminal:
+
+```bash
+node test-api.js     # ejecuta 18 pruebas del flujo completo
+node test-db.js      # prueba solo la capa de datos
+```
+
+## 4. Endpoints
+
+Todas las respuestas son JSON con la forma `{ ok: true/false, ... }`.
+Las rutas protegidas requieren el header `Authorization: Bearer <token>`.
+
+### Autenticación
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| POST | `/api/auth/register` | Público | Registra un cliente. Body: `{ nombre, correo, password }` |
+| POST | `/api/auth/login` | Público | Devuelve `{ usuario, token }`. Body: `{ correo, password }` |
+| GET | `/api/auth/me` | Token | Perfil del usuario autenticado |
+
+### Catálogo (público)
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/peliculas` | Lista de películas activas |
+| GET | `/api/peliculas/:id` | Una película |
+| GET | `/api/funciones` | Cartelera (funciones con película y sala) |
+| GET | `/api/funciones/:id` | Una función |
+| GET | `/api/funciones/:id/asientos` | Asientos de la función con `ocupado` (0/1) |
+
+### Compras (requieren token)
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/api/compras` | Crea una compra. Body: `{ funcion_id, asientos:[id], cliente_nombre }` |
+| GET | `/api/compras/mias` | Compras del usuario |
+| GET | `/api/compras/:id` | Detalle de una compra (solo el dueño) |
+
+### Administración (requieren token + rol administrador)
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/admin/dashboard` | Indicadores + ventas por película/sala/día |
+| GET | `/api/admin/ventas` | Listado completo de ventas |
+
+### Ejemplo con curl
+
+```bash
+# Login
+TOKEN=$(curl -s -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"correo":"usuario@cinemax.com","password":"123456"}' | jq -r .token)
+
+# Comprar 2 asientos de la función 1
+curl -X POST http://localhost:4000/api/compras \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"funcion_id":1,"asientos":[3,4],"cliente_nombre":"Juan"}'
+```
+
+## 5. Arquitectura (patrón MVC en capas)
+
+```
+Petición HTTP
+   │
+   ▼
+routes/        → define la URL y aplica middlewares (auth, soloAdmin)
+   │
+   ▼
+controllers/   → recibe req/res, llama al servicio, responde JSON
+   │
+   ▼
+services/      → lógica de negocio (validaciones, cálculos, transacciones)
+   │
+   ▼
+models/        → Sequelize; mapea las tablas y relaciones
+   │
+   ▼
+config/db.js   → conexión MySQL
+```
 
 ```
 backend/
-├── config/
-│   └── db.js            ← conexión Sequelize (lee del .env)
-├── database/
-│   ├── cinemax.sql      ← esquema + datos + vistas (lo carga Docker)
-│   ├── hashear.js       ← genera hashes bcrypt
-│   └── README.md        ← detalle del modelo de datos
-├── models/
-│   ├── index.js         ← relaciones entre tablas + export de todos los modelos
-│   ├── Usuario.js  Pelicula.js  Sala.js  Asiento.js
-│   ├── Funcion.js  Compra.js    Boleto.js
-├── docker-compose.yml   ← contenedor MySQL
-├── .env.example         ← plantilla de variables (copiar a .env)
-├── test-db.js           ← prueba de la capa de datos
-└── server.js            ← punto de entrada de Express  ← AQUÍ VA EL BACKEND
+├── config/db.js            conexión Sequelize
+├── models/                 7 modelos + relaciones (index.js)
+├── middlewares/
+│   ├── auth.js             verifica JWT → req.usuario
+│   ├── soloAdmin.js        autoriza solo administradores
+│   └── errorHandler.js     respuestas de error uniformes
+├── utils/
+│   ├── jwt.js              firmar/verificar tokens
+│   ├── asyncHandler.js     captura errores async
+│   ├── errores.js          ErrorApp (error con código HTTP)
+│   └── folio.js            genera CMX-XXXX, folios y QR
+├── services/               lógica de negocio
+├── controllers/            capa HTTP
+├── routes/                 endpoints + seguridad
+├── database/               cinemax.sql, hashear.js (base de datos)
+├── docker-compose.yml      contenedor MySQL
+├── server.js               punto de entrada
+├── test-api.js             pruebas de la API
+└── test-db.js              prueba de la capa de datos
 ```
 
-## 4. Cómo usar la capa de datos (para rutas/controladores)
+## 6. Reglas de negocio implementadas
 
-Importa los modelos desde `./models` y usa Sequelize. Ejemplos:
+- **Login por rol:** el token incluye el rol; el frontend redirige a cliente o admin.
+- **Descuento por membresía (20%):** se aplica según la membresía **real** del
+  usuario en la BD (no se puede falsificar desde el cliente).
+- **Asientos:** una compra crea 1 fila en `compras` y N en `boletos`, dentro de
+  una **transacción**. El índice `UNIQUE(funcion_id, asiento_id)` impide vender
+  el mismo asiento dos veces en la misma función (responde `409`).
+- **Máximo 10 boletos** por compra.
 
-```js
-const { Usuario, Pelicula, Funcion, Sala, Compra, Boleto, sequelize } = require('./models');
-
-// Listar películas activas
-const peliculas = await Pelicula.findAll({ where: { activa: true } });
-
-// Cartelera: funciones con su película y sala
-const cartelera = await Funcion.findAll({ include: [Pelicula, Sala] });
-
-// Login: buscar usuario por correo (la contraseña se compara con bcrypt)
-const bcrypt = require('bcryptjs');
-const user = await Usuario.findOne({ where: { correo } });
-const valido = user && bcrypt.compareSync(password, user.contrasena);
-
-// Asientos disponibles de una función (usa la vista SQL)
-const { QueryTypes } = require('sequelize');
-const disponibles = await sequelize.query(
-  'SELECT * FROM v_asientos_disponibles WHERE funcion_id = ?',
-  { replacements: [funcionId], type: QueryTypes.SELECT }
-);
-
-// Indicadores del dashboard (vista SQL de una sola fila)
-const [dashboard] = await sequelize.query(
-  'SELECT * FROM v_dashboard',
-  { type: QueryTypes.SELECT }
-);
-```
-
-### Vistas disponibles para el dashboard
-`v_dashboard`, `v_ventas_por_pelicula`, `v_ventas_por_sala`,
-`v_ventas_por_dia`, `v_asientos_disponibles`.
-(Ver detalle en `database/README.md`.)
-
-## 5. Registrar una compra (transacción recomendada)
-
-Una compra crea 1 fila en `compras` y N filas en `boletos`. Hazlo dentro de
-una transacción para que, si algo falla, no queden datos a medias:
-
-```js
-await sequelize.transaction(async (t) => {
-  const compra = await Compra.create({ /* ...datos... */ }, { transaction: t });
-  for (const asientoId of asientosSeleccionados) {
-    await Boleto.create({
-      compra_id:  compra.id,
-      funcion_id: funcionId,
-      asiento_id: asientoId,
-      folio:      `${compra.codigo}-${asientoId}`,
-    }, { transaction: t });
-  }
-});
-```
-
-> El índice `UNIQUE(funcion_id, asiento_id)` en `boletos` impide vender el
-> mismo asiento dos veces en la misma función: si dos personas eligen el mismo
-> asiento, la segunda compra fallará automáticamente.
-
-## 6. Usuarios de prueba
+## 7. Usuarios de prueba
 
 | Correo | Contraseña | Rol |
 |---|---|---|
 | `admin@cinemax.com` | `123456` | administrador |
 | `usuario@cinemax.com` | `123456` | cliente (con membresía) |
 
-## 7. Comandos útiles de Docker
+## 8. Comandos de Docker
 
 ```bash
 docker compose up -d      # levantar la BD
@@ -130,11 +162,11 @@ docker compose down       # detener (conserva los datos)
 docker compose down -v    # detener y BORRAR datos (recarga cinemax.sql al subir)
 ```
 
-## 8. Variables de entorno (`.env`)
+## 9. Variables de entorno (`.env`)
 
 | Variable | Descripción | Valor por defecto |
 |---|---|---|
-| `PORT` | Puerto del servidor Express | `4000` |
+| `PORT` | Puerto del servidor | `4000` |
 | `DB_HOST` / `DB_PORT` | Host y puerto de MySQL | `localhost` / `3306` |
 | `DB_NAME` / `DB_USER` / `DB_PASSWORD` | Credenciales de la BD | `cinemax_db` / `cinemax_user` / `cinemax_pass` |
 | `JWT_SECRET` | Clave para firmar los tokens JWT | *(cámbiala)* |
