@@ -1,0 +1,54 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 32px 36px;
+}
+
+.contentFlush {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.contentFlush > * {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbarGlow {
+  margin-bottom: 24px;
+  border-color: var(--line) !important;
+}
+
+.topbar {
+  padding: 20px 24px;
+}
+
+.topbar h2 {
+  color: var(--velvet);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.topbar p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 920px) {
+  .content {
+    padding: 20px 18px 28px;
+  }
+}
