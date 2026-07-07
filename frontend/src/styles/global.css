@@ -1,0 +1,86 @@
+:root {
+  --velvet: #7d0f22;
+  --velvet-deep: #4a0812;
+  --velvet-dark: #660b1c;
+  --gold: #e3b23c;
+  --gold-soft: #f0d48a;
+  --ink: #1c1512;
+  --charcoal: #14100e;
+  --charcoal-soft: #211a16;
+  --cream: #f6eee0;
+  --cream-dim: #ece1cd;
+  --paper: #fffdf8;
+  --muted: #8a7b6c;
+  --line: #ddd0b8;
+
+  --font-display: "Bebas Neue", "Work Sans", sans-serif;
+  --font-body: "Work Sans", Arial, Helvetica, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--cream);
+  font-family: var(--font-body);
+  color: var(--ink);
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--gold-soft);
+  color: var(--ink);
+}
+
+/* elemento de firma: perforaciones de rollo de película */
+.film-strip {
+  height: 14px;
+  background-image: radial-gradient(circle, var(--charcoal) 3.5px, transparent 3.6px);
+  background-size: 22px 14px;
+  background-repeat: repeat-x;
+  background-position: center;
+}
+
+.film-strip--on-dark {
+  background-image: radial-gradient(circle, var(--gold) 3.5px, transparent 3.6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
