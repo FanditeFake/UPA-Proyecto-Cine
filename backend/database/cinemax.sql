@@ -202,7 +202,7 @@ INSERT INTO usuarios (nombre, correo, contrasena, rol, membresia) VALUES
  'cliente', 1);
 
 -- -------------------------------------------------------------
---  Películas (las 3 del dashboard + estrenos extra)
+--  Películas (catálogo de la cartelera)
 -- -------------------------------------------------------------
 INSERT INTO peliculas (titulo, sinopsis, duracion, clasificacion, genero, precio) VALUES
 ('Guardianes del Código',
@@ -213,7 +213,34 @@ INSERT INTO peliculas (titulo, sinopsis, duracion, clasificacion, genero, precio
  118, 'B15', 'Suspenso / Terror', 85.00),
 ('Backend: El Origen',
  'La historia de cómo un servidor cambió el destino de toda una red.',
- 140, 'A', 'Drama / Tecnología', 90.00);
+ 140, 'A', 'Drama / Tecnología', 90.00),
+('Dune: Parte Dos',
+ 'Paul Atreides se une a los Fremen para vengar a su familia y liberar Arrakis.',
+ 166, 'B', 'Ciencia ficción / Aventura', 100.00),
+('Oppenheimer',
+ 'La historia del físico que dirigió el desarrollo de la primera bomba atómica.',
+ 180, 'B15', 'Drama / Historia', 95.00),
+('Intensa-Mente 2',
+ 'Riley entra en la adolescencia y nuevas emociones llegan a su mente.',
+ 96, 'AA', 'Animación / Familiar', 85.00),
+('Deadpool & Wolverine',
+ 'Dos antihéroes unen fuerzas en una aventura tan violenta como cómica.',
+ 128, 'C', 'Acción / Comedia', 110.00),
+('El Planeta de los Simios: Nuevo Reino',
+ 'Generaciones después, un joven simio cuestiona todo lo que conoce sobre el pasado.',
+ 145, 'B', 'Ciencia ficción / Aventura', 95.00),
+('Kung Fu Panda 4',
+ 'Po debe encontrar y entrenar al próximo Guerrero Dragón.',
+ 94, 'AA', 'Animación / Familiar', 80.00),
+('Godzilla y Kong: El Nuevo Imperio',
+ 'Los dos titanes se enfrentan a una amenaza colosal escondida en la Tierra.',
+ 115, 'B', 'Acción / Ciencia ficción', 100.00),
+('Bad Boys: Hasta la Muerte',
+ 'Los detectives Mike y Marcus limpian el nombre de su capitán caído.',
+ 115, 'B15', 'Acción / Comedia', 95.00),
+('Rivales',
+ 'Un triángulo amoroso se tensa dentro y fuera de las canchas de tenis.',
+ 131, 'C', 'Drama / Romance', 90.00);
 
 -- -------------------------------------------------------------
 --  Salas (capacidad 20 = 4 filas x 5 asientos, como el frontend)
@@ -221,7 +248,12 @@ INSERT INTO peliculas (titulo, sinopsis, duracion, clasificacion, genero, precio
 INSERT INTO salas (nombre, capacidad) VALUES
 ('Sala 1', 20),
 ('Sala 2', 20),
-('Sala 3', 20);
+('Sala 3', 20),
+('Sala 4', 20),
+('Sala 5', 20),
+('Sala 6', 20),
+('Sala 7', 20),
+('Sala 8', 20);
 
 -- -------------------------------------------------------------
 --  Asientos: filas A-D x numeros 1-5 para cada sala (20 c/u)
@@ -244,6 +276,34 @@ INSERT INTO asientos (sala_id, fila, numero, codigo) VALUES
 (3,'C',1,'C1'),(3,'C',2,'C2'),(3,'C',3,'C3'),(3,'C',4,'C4'),(3,'C',5,'C5'),
 (3,'D',1,'D1'),(3,'D',2,'D2'),(3,'D',3,'D3'),(3,'D',4,'D4'),(3,'D',5,'D5');
 
+-- Salas 4 a 8 (mismo layout A-D x 1-5)
+INSERT INTO asientos (sala_id, fila, numero, codigo) VALUES
+-- Sala 4
+(4,'A',1,'A1'),(4,'A',2,'A2'),(4,'A',3,'A3'),(4,'A',4,'A4'),(4,'A',5,'A5'),
+(4,'B',1,'B1'),(4,'B',2,'B2'),(4,'B',3,'B3'),(4,'B',4,'B4'),(4,'B',5,'B5'),
+(4,'C',1,'C1'),(4,'C',2,'C2'),(4,'C',3,'C3'),(4,'C',4,'C4'),(4,'C',5,'C5'),
+(4,'D',1,'D1'),(4,'D',2,'D2'),(4,'D',3,'D3'),(4,'D',4,'D4'),(4,'D',5,'D5'),
+-- Sala 5
+(5,'A',1,'A1'),(5,'A',2,'A2'),(5,'A',3,'A3'),(5,'A',4,'A4'),(5,'A',5,'A5'),
+(5,'B',1,'B1'),(5,'B',2,'B2'),(5,'B',3,'B3'),(5,'B',4,'B4'),(5,'B',5,'B5'),
+(5,'C',1,'C1'),(5,'C',2,'C2'),(5,'C',3,'C3'),(5,'C',4,'C4'),(5,'C',5,'C5'),
+(5,'D',1,'D1'),(5,'D',2,'D2'),(5,'D',3,'D3'),(5,'D',4,'D4'),(5,'D',5,'D5'),
+-- Sala 6
+(6,'A',1,'A1'),(6,'A',2,'A2'),(6,'A',3,'A3'),(6,'A',4,'A4'),(6,'A',5,'A5'),
+(6,'B',1,'B1'),(6,'B',2,'B2'),(6,'B',3,'B3'),(6,'B',4,'B4'),(6,'B',5,'B5'),
+(6,'C',1,'C1'),(6,'C',2,'C2'),(6,'C',3,'C3'),(6,'C',4,'C4'),(6,'C',5,'C5'),
+(6,'D',1,'D1'),(6,'D',2,'D2'),(6,'D',3,'D3'),(6,'D',4,'D4'),(6,'D',5,'D5'),
+-- Sala 7
+(7,'A',1,'A1'),(7,'A',2,'A2'),(7,'A',3,'A3'),(7,'A',4,'A4'),(7,'A',5,'A5'),
+(7,'B',1,'B1'),(7,'B',2,'B2'),(7,'B',3,'B3'),(7,'B',4,'B4'),(7,'B',5,'B5'),
+(7,'C',1,'C1'),(7,'C',2,'C2'),(7,'C',3,'C3'),(7,'C',4,'C4'),(7,'C',5,'C5'),
+(7,'D',1,'D1'),(7,'D',2,'D2'),(7,'D',3,'D3'),(7,'D',4,'D4'),(7,'D',5,'D5'),
+-- Sala 8
+(8,'A',1,'A1'),(8,'A',2,'A2'),(8,'A',3,'A3'),(8,'A',4,'A4'),(8,'A',5,'A5'),
+(8,'B',1,'B1'),(8,'B',2,'B2'),(8,'B',3,'B3'),(8,'B',4,'B4'),(8,'B',5,'B5'),
+(8,'C',1,'C1'),(8,'C',2,'C2'),(8,'C',3,'C3'),(8,'C',4,'C4'),(8,'C',5,'C5'),
+(8,'D',1,'D1'),(8,'D',2,'D2'),(8,'D',3,'D3'),(8,'D',4,'D4'),(8,'D',5,'D5');
+
 -- -------------------------------------------------------------
 --  Funciones
 --  "Guardianes del Código" en Sala 1 a las 19:30 (como el frontend).
@@ -258,7 +318,31 @@ INSERT INTO funciones (pelicula_id, sala_id, horario) VALUES
 (2, 2, DATE_FORMAT(NOW(), '%Y-%m-%d 21:00:00')),
 -- Backend: El Origen (Sala 3)
 (3, 3, DATE_FORMAT(NOW(), '%Y-%m-%d 17:30:00')),
-(3, 3, DATE_FORMAT(NOW() + INTERVAL 1 DAY, '%Y-%m-%d 20:00:00'));
+(3, 3, DATE_FORMAT(NOW() + INTERVAL 1 DAY, '%Y-%m-%d 20:00:00')),
+-- Dune: Parte Dos (Sala 4)
+(4, 4, DATE_FORMAT(NOW(), '%Y-%m-%d 16:30:00')),
+(4, 4, DATE_FORMAT(NOW(), '%Y-%m-%d 20:30:00')),
+-- Oppenheimer (Sala 5)
+(5, 5, DATE_FORMAT(NOW(), '%Y-%m-%d 17:00:00')),
+(5, 5, DATE_FORMAT(NOW() + INTERVAL 1 DAY, '%Y-%m-%d 19:00:00')),
+-- Intensa-Mente 2 (Sala 6)
+(6, 6, DATE_FORMAT(NOW(), '%Y-%m-%d 14:30:00')),
+(6, 6, DATE_FORMAT(NOW(), '%Y-%m-%d 17:00:00')),
+-- Deadpool & Wolverine (Sala 7)
+(7, 7, DATE_FORMAT(NOW(), '%Y-%m-%d 18:30:00')),
+(7, 7, DATE_FORMAT(NOW(), '%Y-%m-%d 21:30:00')),
+-- El Planeta de los Simios (Sala 8)
+(8, 8, DATE_FORMAT(NOW(), '%Y-%m-%d 15:00:00')),
+(8, 8, DATE_FORMAT(NOW() + INTERVAL 1 DAY, '%Y-%m-%d 18:00:00')),
+-- Kung Fu Panda 4 (Sala 4, mañana)
+(9, 4, DATE_FORMAT(NOW() + INTERVAL 1 DAY, '%Y-%m-%d 13:00:00')),
+(9, 4, DATE_FORMAT(NOW() + INTERVAL 1 DAY, '%Y-%m-%d 16:00:00')),
+-- Godzilla y Kong (Sala 5, mañana)
+(10, 5, DATE_FORMAT(NOW() + INTERVAL 1 DAY, '%Y-%m-%d 21:00:00')),
+-- Bad Boys: Hasta la Muerte (Sala 6, mañana)
+(11, 6, DATE_FORMAT(NOW() + INTERVAL 1 DAY, '%Y-%m-%d 20:00:00')),
+-- Rivales (Sala 7, mañana)
+(12, 7, DATE_FORMAT(NOW() + INTERVAL 1 DAY, '%Y-%m-%d 19:30:00'));
 
 -- -------------------------------------------------------------
 --  Compra de ejemplo (para que el dashboard no salga en ceros).
