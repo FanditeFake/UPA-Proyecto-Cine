@@ -16,4 +16,16 @@ const obtener = asyncHandler(async (req, res) => {
   res.json({ ok: true, pelicula });
 });
 
-module.exports = { listar, obtener };
+// POST /api/admin/peliculas  (solo admin)
+const crear = asyncHandler(async (req, res) => {
+  const pelicula = await peliculaService.crear(req.body);
+  res.status(201).json({ ok: true, pelicula });
+});
+
+// DELETE /api/admin/peliculas/:id  (solo admin) — solo si no tiene boletos vendidos
+const eliminar = asyncHandler(async (req, res) => {
+  const resultado = await peliculaService.eliminar(req.params.id);
+  res.json({ ok: true, mensaje: `Película "${resultado.titulo}" eliminada.`, id: resultado.id });
+});
+
+module.exports = { listar, obtener, crear, eliminar };

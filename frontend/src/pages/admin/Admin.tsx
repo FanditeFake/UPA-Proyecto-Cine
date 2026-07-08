@@ -16,13 +16,6 @@ import {
   generarReportePorDiaPdf,
   generarReporteDashboardPdf,
 } from "../../utils/dashboardReport";
-import {
-  getFuncionesLocales,
-  agregarFuncionLocal,
-  eliminarFuncionLocal,
-  limpiarDatosLocales,
-  onLocalDataChange,
-} from "../../utils/localDemoData";
 import { AppShell, type MenuOption } from "../../components/AppShell";
 import { IconTicket, IconFilm, IconHistory } from "../../components/icons";
 import { BoletosSection } from "../cliente/BoletosSection";
@@ -33,13 +26,11 @@ import AnimatedContent from "../../components/AnimatedContent";
 import type { DashboardResumen, Funcion, Pelicula, Sala, VentaResumen } from "../../api/types";
 import styles from "./Admin.module.css";
 
-const SALAS_POR_DEFECTO: Sala[] = [
-  { id: 1, nombre: "Sala 1", capacidad: 20 },
-  { id: 2, nombre: "Sala 2", capacidad: 20 },
-  { id: 3, nombre: "Sala 3", capacidad: 20 },
-  { id: 4, nombre: "Sala 4", capacidad: 20 },
-  { id: 5, nombre: "Sala 5", capacidad: 20 },
-];
+const SALAS_POR_DEFECTO: Sala[] = Array.from({ length: 8 }, (_, i) => ({
+  id: i + 1,
+  nombre: `Sala ${i + 1}`,
+  capacidad: 20,
+}));
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -85,7 +76,7 @@ export function Admin() {
   const [ventas, setVentas] = useState<VentaResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [funciones, setFunciones] = useState<Funcion[]>([]);
-  const [funcionesLocales, setFuncionesLocales] = useState(getFuncionesLocales());
+  const [peliculas, setPeliculas] = useState<Pelicula[]>([]);
 
   const [modoPelicula, setModoPelicula] = useState<"existente" | "nueva">("existente");
   const [peliculaId, setPeliculaId] = useState<number | "">("");
@@ -97,8 +88,11 @@ export function Admin() {
   const [nuevaClasificacion, setNuevaClasificacion] = useState("B");
   const [nuevoGenero, setNuevoGenero] = useState("");
   const [nuevoPrecio, setNuevoPrecio] = useState("85");
+  const [nuevoPoster, setNuevoPoster] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [reseteando, setReseteando] = useState(false);
 
   useEffect(() => {
     api.dashboard()
@@ -112,18 +106,22 @@ export function Admin() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las ventas."));
   }, []);
 
-  useEffect(() => {
+  function cargarProgramacion() {
     api.funciones().then((res) => setFunciones(res.funciones)).catch(() => {});
-    return onLocalDataChange(() => setFuncionesLocales(getFuncionesLocales()));
+    api.peliculas().then((res) => setPeliculas(res.peliculas)).catch(() => {});
+  }
+
+  useEffect(() => {
+    cargarProgramacion();
   }, []);
 
-  const peliculasExistentes = useMemo(
-    () => Array.from(new Map(funciones.map((f) => [f.pelicula.id, f.pelicula])).values()),
-    [funciones]
-  );
+  // Películas del catálogo (de la BD) para el selector "película existente".
+  const peliculasExistentes = peliculas;
+
+  // Salas: se derivan de la cartelera real; si aún no carga, usa las 8 por defecto.
   const salasExistentes = useMemo(() => {
     const unicas = Array.from(new Map(funciones.map((f) => [f.sala.id, f.sala])).values());
-    return unicas.length ? unicas : SALAS_POR_DEFECTO;
+    return unicas.length ? unicas.sort((a, b) => a.id - b.id) : SALAS_POR_DEFECTO;
   }, [funciones]);
 
   function resetFormularioPelicula() {
@@ -133,41 +131,78 @@ export function Admin() {
     setNuevaClasificacion("B");
     setNuevoGenero("");
     setNuevoPrecio("85");
+    setNuevoPoster("");
   }
 
-  function handleAgregarFuncion(e: FormEvent) {
+  async function handleAgregarFuncion(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
 
     if (!horario) return setFormError("Selecciona fecha y hora de la función.");
     if (!salaId) return setFormError("Selecciona una sala.");
-
-    let peliculaFinal: Pelicula;
-    if (modoPelicula === "existente") {
-      const encontrada = peliculasExistentes.find((p) => p.id === peliculaId);
-      if (!encontrada) return setFormError("Selecciona una película.");
-      peliculaFinal = encontrada;
-    } else {
+    if (modoPelicula === "existente" && !peliculaId) return setFormError("Selecciona una película.");
+    if (modoPelicula === "nueva") {
       if (!nuevoTitulo.trim()) return setFormError("Ingresa el título de la película.");
+      if (!nuevoGenero.trim()) return setFormError("Ingresa el género de la película.");
       if (!nuevoPrecio || Number(nuevoPrecio) <= 0) return setFormError("Ingresa un precio válido.");
-      peliculaFinal = {
-        id: -Date.now(),
-        titulo: nuevoTitulo.trim(),
-        sinopsis: nuevaSinopsis.trim() || null,
-        duracion: Number(nuevaDuracion) || 100,
-        clasificacion: nuevaClasificacion || "B",
-        genero: nuevoGenero.trim() || "General",
-        precio: nuevoPrecio,
-        activa: true,
-      };
     }
 
-    const sala = salasExistentes.find((s) => s.id === salaId)!;
-    agregarFuncionLocal(peliculaFinal, sala, new Date(horario).toISOString());
-    setFormSuccess(`Función de "${peliculaFinal.titulo}" agregada. Solo visible en este navegador.`);
-    setHorario("");
-    if (modoPelicula === "nueva") resetFormularioPelicula();
+    setEnviando(true);
+    try {
+      // 1) Determina la película: si es nueva, se crea primero en la BD.
+      let peliculaIdFinal: number;
+      let tituloFinal: string;
+
+      if (modoPelicula === "existente") {
+        peliculaIdFinal = Number(peliculaId);
+        tituloFinal = peliculasExistentes.find((p) => p.id === peliculaId)?.titulo ?? "la película";
+      } else {
+        const { pelicula } = await api.crearPelicula({
+          titulo: nuevoTitulo.trim(),
+          genero: nuevoGenero.trim(),
+          duracion: Number(nuevaDuracion) || 100,
+          precio: Number(nuevoPrecio),
+          clasificacion: nuevaClasificacion || "B",
+          sinopsis: nuevaSinopsis.trim() || null,
+          poster_url: nuevoPoster.trim() || null,
+        });
+        peliculaIdFinal = pelicula.id;
+        tituloFinal = pelicula.titulo;
+      }
+
+      // 2) Crea la función. El backend valida que no se empalme con otra
+      //    de la misma sala (responde 409 con el detalle del choque).
+      //    Se envía el horario tal cual (hora local, sin convertir a UTC).
+      await api.crearFuncion(peliculaIdFinal, Number(salaId), horario);
+
+      setFormSuccess(`Función de "${tituloFinal}" agregada a la cartelera.`);
+      setHorario("");
+      if (modoPelicula === "nueva") resetFormularioPelicula();
+      cargarProgramacion();
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "No se pudo agregar la función.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function handleResetBD() {
+    if (!confirm("¿Restablecer la base de datos a su estado inicial? Se borrarán las películas, funciones y ventas agregadas y se recargarán los datos de ejemplo.")) {
+      return;
+    }
+    setReseteando(true);
+    setFormError(null);
+    setFormSuccess(null);
+    try {
+      await api.resetearBD();
+      setFormSuccess("Base de datos restablecida a su estado inicial.");
+      cargarProgramacion();
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "No se pudo restablecer la base de datos.");
+    } finally {
+      setReseteando(false);
+    }
   }
 
   const indicadores = dashboard?.indicadores;
@@ -369,9 +404,9 @@ export function Admin() {
       {vista === "programacion" && (
         <>
           <div className={styles.notice}>
-            Estas funciones solo se guardan en este navegador (no en el servidor real). Para que sean
-            visibles y comprables para todos, tu compañero de backend debe agregar endpoints
-            <code> POST /api/admin/peliculas</code> y <code>POST /api/admin/funciones</code>.
+            Las funciones se guardan en el servidor y quedan visibles y comprables para todos.
+            El sistema valida que dos funciones de la misma sala no se empalmen (deja al menos
+            15 min de separación entre ellas).
           </div>
 
           {formSuccess && <div className={styles.success}>{formSuccess}</div>}
@@ -435,6 +470,14 @@ export function Admin() {
                     <label>Sinopsis</label>
                     <input value={nuevaSinopsis} onChange={(e) => setNuevaSinopsis(e.target.value)} />
                   </div>
+                  <div className={`${styles.field} ${styles.fieldWide}`}>
+                    <label>URL del póster (opcional)</label>
+                    <input
+                      value={nuevoPoster}
+                      onChange={(e) => setNuevoPoster(e.target.value)}
+                      placeholder="https://…  (si se deja vacío se usa un cartel genérico)"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -454,56 +497,49 @@ export function Admin() {
                 </div>
               </div>
 
-              <button type="submit" className={styles.reportBtn}>Agregar función</button>
+              <button type="submit" className={styles.reportBtn} disabled={enviando}>
+                {enviando ? "Agregando…" : "Agregar función"}
+              </button>
             </form>
           </div>
 
           <div className={styles.tableCard}>
             <div className={styles.cleanupHeader}>
               <div>
-                <h3>Limpiar datos de prueba</h3>
+                <h3>Restablecer base de datos</h3>
                 <p className={styles.cleanupHint}>
-                  Borra las funciones, compras y asientos ocupados que solo existen en este navegador (no afecta las ventas reales del servidor).
+                  Vuelve la base de datos a su estado inicial: recarga el catálogo, las funciones
+                  y las ventas de ejemplo, y elimina todo lo que se haya agregado. Úsalo para dejar la demo limpia.
                 </p>
               </div>
               <button
                 type="button"
                 className={styles.removeBtn}
-                onClick={() => {
-                  if (confirm("¿Borrar todas las funciones y compras de prueba guardadas en este navegador?")) {
-                    limpiarDatosLocales();
-                    setFormSuccess("Datos de prueba eliminados.");
-                    setFormError(null);
-                  }
-                }}
+                onClick={handleResetBD}
+                disabled={reseteando}
               >
-                Limpiar compras de prueba
+                {reseteando ? "Restableciendo…" : "Restablecer BD"}
               </button>
             </div>
           </div>
 
           <div className={styles.tableCard}>
-            <h3>Funciones agregadas localmente ({funcionesLocales.length})</h3>
-            {funcionesLocales.length === 0 ? (
-              <p className={styles.empty}>Aún no has agregado funciones.</p>
+            <h3>Cartelera actual ({funciones.length})</h3>
+            {funciones.length === 0 ? (
+              <p className={styles.empty}>No hay funciones programadas.</p>
             ) : (
               <div className={styles.tableScroll}>
                 <table className={styles.table}>
                   <thead>
-                    <tr><th>Película</th><th>Sala</th><th>Horario</th><th>Precio</th><th></th></tr>
+                    <tr><th>Película</th><th>Sala</th><th>Horario</th><th>Precio</th></tr>
                   </thead>
                   <tbody>
-                    {funcionesLocales.map((f) => (
+                    {funciones.map((f) => (
                       <tr key={f.id}>
                         <td>{f.pelicula.titulo}</td>
                         <td>{f.sala.nombre}</td>
-                        <td>{new Date(f.horario).toLocaleString("es-MX")}</td>
+                        <td>{f.horario}</td>
                         <td>{formatCurrency(Number(f.pelicula.precio))}</td>
-                        <td>
-                          <button type="button" className={styles.removeBtn} onClick={() => eliminarFuncionLocal(f.id)}>
-                            Quitar
-                          </button>
-                        </td>
                       </tr>
                     ))}
                   </tbody>

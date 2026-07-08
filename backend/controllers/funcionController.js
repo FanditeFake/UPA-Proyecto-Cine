@@ -22,4 +22,10 @@ const asientos = asyncHandler(async (req, res) => {
   res.json({ ok: true, asientos });
 });
 
-module.exports = { listar, obtener, asientos };
+// POST /api/admin/funciones  (solo admin) — valida empalme de horarios
+const crear = asyncHandler(async (req, res) => {
+  const funcion = await funcionService.crear(req.body);
+  res.status(201).json({ ok: true, funcion });
+});
+
+module.exports = { listar, obtener, asientos, crear };

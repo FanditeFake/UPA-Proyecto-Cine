@@ -26,6 +26,10 @@ const sequelize = new Sequelize(
     timezone: process.env.DB_TIMEZONE || '-06:00',
 
     dialectOptions: {
+      // Codificación de la conexión: utf8mb4 para que acentos, ñ y emojis se
+      // ESCRIBAN y LEAN correctamente (evita mojibake al insertar por la API).
+      charset: 'utf8mb4',
+
       // Devuelve DATETIME/DATE/TIMESTAMP como TEXTO tal cual está guardado
       // (ej: "2026-07-06 19:30:00"). Evita que JavaScript los convierta a UTC
       // y "corra" el día u hora. Así el horario que se guarda es el que se

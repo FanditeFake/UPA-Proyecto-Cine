@@ -10,6 +10,10 @@
 --    3. Crea vistas listas para el dashboard del administrador.
 -- =============================================================
 
+-- Fija la codificación de la sesión a utf8mb4 para que los acentos y la ñ
+-- se carguen correctamente sin importar el cliente que ejecute el script.
+SET NAMES utf8mb4;
+
 -- Crear y seleccionar la base de datos
 CREATE DATABASE IF NOT EXISTS cinemax_db
   CHARACTER SET utf8mb4
@@ -54,6 +58,7 @@ CREATE TABLE peliculas (
   clasificacion  ENUM('AA','A','B','B15','C','D') NOT NULL DEFAULT 'B',
   genero         VARCHAR(80)    NOT NULL,
   precio         DECIMAL(8,2)   NOT NULL COMMENT 'precio base por boleto',
+  poster_url     VARCHAR(500)   NULL COMMENT 'URL del póster; NULL usa placeholder en el frontend',
   activa         TINYINT(1)     NOT NULL DEFAULT 1,
 
   PRIMARY KEY (id),
@@ -205,15 +210,15 @@ INSERT INTO usuarios (nombre, correo, contrasena, rol, membresia) VALUES
 --  Películas (catálogo de la cartelera)
 -- -------------------------------------------------------------
 INSERT INTO peliculas (titulo, sinopsis, duracion, clasificacion, genero, precio) VALUES
-('Guardianes del Código',
- 'Un grupo de programadores debe salvar una ciudad digital antes de que el sistema colapse.',
- 125, 'B', 'Ciencia ficción / Acción', 85.00),
-('La Sala Perdida',
- 'Una sala de cine abandonada esconde un secreto que altera la realidad de quien la visita.',
- 118, 'B15', 'Suspenso / Terror', 85.00),
-('Backend: El Origen',
- 'La historia de cómo un servidor cambió el destino de toda una red.',
- 140, 'A', 'Drama / Tecnología', 90.00),
+('Spider-Man: Brand New Day',
+ 'Peter Parker enfrenta una nueva etapa como héroe cuando amenazas inéditas ponen a prueba su identidad.',
+ 130, 'B', 'Acción / Aventura', 110.00),
+('Avatar: Fuego y Cenizas',
+ 'Jake y Neytiri conocen a nuevos clanes Na''vi mientras el fuego amenaza el equilibrio de Pandora.',
+ 190, 'B', 'Ciencia ficción / Aventura', 120.00),
+('Jurassic World: Rebirth',
+ 'Un equipo se adentra en una isla remota donde los dinosaurios más peligrosos aún dominan.',
+ 134, 'B', 'Ciencia ficción / Aventura', 110.00),
 ('Dune: Parte Dos',
  'Paul Atreides se une a los Fremen para vengar a su familia y liberar Arrakis.',
  166, 'B', 'Ciencia ficción / Aventura', 100.00),
@@ -241,6 +246,24 @@ INSERT INTO peliculas (titulo, sinopsis, duracion, clasificacion, genero, precio
 ('Rivales',
  'Un triángulo amoroso se tensa dentro y fuera de las canchas de tenis.',
  131, 'C', 'Drama / Romance', 90.00);
+
+-- -------------------------------------------------------------
+--  Pósters de las películas (imágenes de Wikipedia).
+--  Si una película no tuviera poster_url, el frontend le genera
+--  un cartel placeholder con la marca CineMax.
+-- -------------------------------------------------------------
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Spider-Man_Brand_New_Day_poster.jpg/250px-Spider-Man_Brand_New_Day_poster.jpg' WHERE titulo = 'Spider-Man: Brand New Day';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/9/95/Avatar_Fire_and_Ash_poster.jpeg/250px-Avatar_Fire_and_Ash_poster.jpeg'         WHERE titulo = 'Avatar: Fuego y Cenizas';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a5/Jurassic_World_Rebirth_poster.jpg/250px-Jurassic_World_Rebirth_poster.jpg'       WHERE titulo = 'Jurassic World: Rebirth';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/5/52/Dune_Part_Two_poster.jpeg/250px-Dune_Part_Two_poster.jpeg'                         WHERE titulo = 'Dune: Parte Dos';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/4/4a/Oppenheimer_%28film%29.jpg/250px-Oppenheimer_%28film%29.jpg'                       WHERE titulo = 'Oppenheimer';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/f/f7/Inside_Out_2_poster.jpg/250px-Inside_Out_2_poster.jpg'                             WHERE titulo = 'Intensa-Mente 2';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/4/4c/Deadpool_%26_Wolverine_poster.jpg/250px-Deadpool_%26_Wolverine_poster.jpg'         WHERE titulo = 'Deadpool & Wolverine';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/c/cf/Kingdom_of_the_Planet_of_the_Apes_poster.jpg'                                            WHERE titulo = 'El Planeta de los Simios: Nuevo Reino';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/7/7f/Kung_Fu_Panda_4_poster.jpg/250px-Kung_Fu_Panda_4_poster.jpg'                       WHERE titulo = 'Kung Fu Panda 4';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/b/be/Godzilla_x_kong_the_new_empire_poster.jpg/250px-Godzilla_x_kong_the_new_empire_poster.jpg' WHERE titulo = 'Godzilla y Kong: El Nuevo Imperio';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/thumb/8/8b/Bad_Boys_Ride_or_Die_%282024%29_poster.jpg/250px-Bad_Boys_Ride_or_Die_%282024%29_poster.jpg' WHERE titulo = 'Bad Boys: Hasta la Muerte';
+UPDATE peliculas SET poster_url = 'https://upload.wikimedia.org/wikipedia/en/b/b4/Challengers_2024_poster.jpeg'                                                            WHERE titulo = 'Rivales';
 
 -- -------------------------------------------------------------
 --  Salas (capacidad 20 = 4 filas x 5 asientos, como el frontend)
@@ -347,8 +370,8 @@ INSERT INTO funciones (pelicula_id, sala_id, horario) VALUES
 -- -------------------------------------------------------------
 --  Compra de ejemplo (para que el dashboard no salga en ceros).
 --  Cliente "Usuario Cliente" compra 2 boletos con membresia
---  para la función 1 (Guardianes, Sala 1, 19:30).
---  Precio 85 x 2 = 170 subtotal; 20% desc = 34; total = 136.
+--  para la función 1 (Spider-Man, Sala 1, 19:30).
+--  Compra histórica: 85 x 2 = 170 subtotal; 20% desc = 34; total = 136.
 -- -------------------------------------------------------------
 INSERT INTO compras
   (codigo, usuario_id, funcion_id, cliente_nombre, cantidad, con_membresia, subtotal, descuento, total)
@@ -357,8 +380,8 @@ VALUES
 
 -- Boletos de esa compra: asientos A1 y A2 de la Sala 1 (ids 1 y 2)
 INSERT INTO boletos (compra_id, funcion_id, asiento_id, folio, codigo_qr) VALUES
-(1, 1, 1, 'CMX-1001-A1', 'CMX-1001|Guardianes del Código|Sala 1|19:30|A1'),
-(1, 1, 2, 'CMX-1001-A2', 'CMX-1001|Guardianes del Código|Sala 1|19:30|A2');
+(1, 1, 1, 'CMX-1001-A1', 'CMX-1001|Spider-Man: Brand New Day|Sala 1|19:30|A1'),
+(1, 1, 2, 'CMX-1001-A2', 'CMX-1001|Spider-Man: Brand New Day|Sala 1|19:30|A2');
 
 
 -- =============================================================

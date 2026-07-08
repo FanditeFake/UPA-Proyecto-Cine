@@ -10,7 +10,11 @@ export default function App() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
+    // Sin mode="wait": la ruta entrante debe montarse de inmediato. Con
+    // "wait", framer esperaba a que la ruta saliente (cliente, con componentes
+    // WebGL) terminara su salida —que a veces no completaba— y dejaba la
+    // pantalla en blanco al cerrar sesión.
+    <AnimatePresence>
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />

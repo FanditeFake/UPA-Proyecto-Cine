@@ -12,7 +12,6 @@ import LightRays from "../../components/LightRays";
 import RotatingText from "../../components/RotatingText";
 import { IconClose } from "../../components/icons";
 import { posterDataUri } from "../../utils/poster";
-import { fetchExternalPosters, pickExternalPoster, type ExternalPoster } from "../../utils/externalPosters";
 import { qrToDataUrl } from "../../utils/qrToDataUrl";
 import {
   getFuncionesLocales,
@@ -65,7 +64,6 @@ export function BoletosSection({ vista, nombreEditable }: BoletosSectionProps) {
   const [misCompras, setMisCompras] = useState<Compra[] | null>(null);
   const [historialError, setHistorialError] = useState<string | null>(null);
   const [boletoSeleccionado, setBoletoSeleccionado] = useState<Compra | null>(null);
-  const [externalPosters, setExternalPosters] = useState<ExternalPoster[]>([]);
 
   useEffect(() => {
     if (!nombreEditable) setNombreCliente(usuario?.nombre ?? "");
@@ -81,12 +79,10 @@ export function BoletosSection({ vista, nombreEditable }: BoletosSectionProps) {
     return onLocalDataChange(cargarFunciones);
   }, []);
 
-  useEffect(() => {
-    fetchExternalPosters().then(setExternalPosters);
-  }, []);
-
   function poster(pelicula: Pelicula) {
-    return pickExternalPoster(externalPosters, pelicula.id) ?? posterDataUri(pelicula.titulo, pelicula.id);
+    // Usa el póster real guardado en la BD; si no tiene (películas ficticias),
+    // genera un cartel placeholder con la marca CineMax.
+    return pelicula.poster_url || posterDataUri(pelicula.titulo, pelicula.id);
   }
 
   useEffect(() => {
@@ -104,7 +100,7 @@ export function BoletosSection({ vista, nombreEditable }: BoletosSectionProps) {
 
   const circularItems = useMemo(
     () => peliculasUnicas.map((p) => ({ image: poster(p), text: p.titulo })),
-    [peliculasUnicas, externalPosters]
+    [peliculasUnicas]
   );
 
   const flowingItems = useMemo(
@@ -114,7 +110,7 @@ export function BoletosSection({ vista, nombreEditable }: BoletosSectionProps) {
         image: poster(p),
         onClick: () => setPeliculaHorarios(p),
       })),
-    [peliculasUnicas, externalPosters]
+    [peliculasUnicas]
   );
 
   const horariosDePelicula = peliculaHorarios ? funciones.filter((f) => f.pelicula.id === peliculaHorarios.id) : [];

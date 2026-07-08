@@ -1,11 +1,22 @@
 import type {
   Usuario,
+  Pelicula,
   Funcion,
   Asiento,
   Compra,
   VentaResumen,
   DashboardResumen,
 } from "./types";
+
+export interface NuevaPeliculaInput {
+  titulo: string;
+  genero: string;
+  duracion: number;
+  precio: number;
+  clasificacion?: string;
+  sinopsis?: string | null;
+  poster_url?: string | null;
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
@@ -46,6 +57,8 @@ export const api = {
       body: JSON.stringify({ nombre, correo, password }),
     }),
 
+  peliculas: () => request<{ peliculas: Pelicula[] }>("/peliculas"),
+
   funciones: () => request<{ funciones: Funcion[] }>("/funciones"),
 
   asientos: (funcionId: number) =>
@@ -62,4 +75,25 @@ export const api = {
   dashboard: () => request<DashboardResumen>("/admin/dashboard"),
 
   ventas: () => request<{ ventas: VentaResumen[] }>("/admin/ventas"),
+
+  // ── Admin: alta de catálogo y mantenimiento ──────────────
+  crearPelicula: (datos: NuevaPeliculaInput) =>
+    request<{ pelicula: Pelicula }>("/admin/peliculas", {
+      method: "POST",
+      body: JSON.stringify(datos),
+    }),
+
+  crearFuncion: (pelicula_id: number, sala_id: number, horario: string) =>
+    request<{ funcion: Funcion }>("/admin/funciones", {
+      method: "POST",
+      body: JSON.stringify({ pelicula_id, sala_id, horario }),
+    }),
+
+  eliminarPelicula: (id: number) =>
+    request<{ ok: true; mensaje: string; id: number }>(`/admin/peliculas/${id}`, {
+      method: "DELETE",
+    }),
+
+  resetearBD: () =>
+    request<{ ok: true; mensaje: string }>("/admin/reset", { method: "POST" }),
 };

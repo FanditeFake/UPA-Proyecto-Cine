@@ -16,6 +16,7 @@ export interface Pelicula {
   clasificacion: string;
   genero: string;
   precio: string;
+  poster_url: string | null;
   activa: boolean;
 }
 

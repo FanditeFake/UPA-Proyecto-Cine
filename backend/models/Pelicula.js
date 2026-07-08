@@ -10,6 +10,7 @@ const Pelicula = sequelize.define('peliculas', {
   clasificacion: { type: DataTypes.ENUM('AA', 'A', 'B', 'B15', 'C', 'D'), allowNull: false, defaultValue: 'B' },
   genero:        { type: DataTypes.STRING(80), allowNull: false },
   precio:        { type: DataTypes.DECIMAL(8, 2), allowNull: false },
+  poster_url:    { type: DataTypes.STRING(500), allowNull: true }, // URL del póster; NULL = placeholder en el frontend
   activa:        { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
 });
 
