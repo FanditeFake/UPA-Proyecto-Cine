@@ -26,5 +26,6 @@ export function fetchExternalPosters(): Promise<ExternalPoster[]> {
 
 export function pickExternalPoster(list: ExternalPoster[], seed: number): string | null {
   if (!list.length) return null;
-  return list[seed % list.length].posterURL;
+  const index = ((seed % list.length) + list.length) % list.length;
+  return list[index].posterURL;
 }

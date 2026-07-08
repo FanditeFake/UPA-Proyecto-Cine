@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -9,14 +9,35 @@ import {
   Legend,
 } from "chart.js";
 import { api, ApiError } from "../../api/client";
-import { generarReporteDashboardPdf } from "../../utils/dashboardReport";
+import {
+  generarReporteVentasPdf,
+  generarReporteIngresosPdf,
+  generarReportePorPeliculaPdf,
+  generarReportePorDiaPdf,
+  generarReporteDashboardPdf,
+} from "../../utils/dashboardReport";
+import {
+  getFuncionesLocales,
+  agregarFuncionLocal,
+  eliminarFuncionLocal,
+  limpiarDatosLocales,
+  onLocalDataChange,
+} from "../../utils/localDemoData";
 import { AppShell, type MenuOption } from "../../components/AppShell";
-import { BorderGlow } from "../../components/BorderGlow";
+import MagicBento from "../../components/MagicBento";
 import CountUp from "../../components/CountUp";
 import AnimatedList from "../../components/AnimatedList";
 import AnimatedContent from "../../components/AnimatedContent";
-import type { DashboardResumen, VentaResumen } from "../../api/types";
+import type { DashboardResumen, Funcion, Pelicula, Sala, VentaResumen } from "../../api/types";
 import styles from "./Admin.module.css";
+
+const SALAS_POR_DEFECTO: Sala[] = [
+  { id: 1, nombre: "Sala 1", capacidad: 20 },
+  { id: 2, nombre: "Sala 2", capacidad: 20 },
+  { id: 3, nombre: "Sala 3", capacidad: 20 },
+  { id: 4, nombre: "Sala 4", capacidad: 20 },
+  { id: 5, nombre: "Sala 5", capacidad: 20 },
+];
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -35,36 +56,20 @@ const IconVentas = (
   </svg>
 );
 
+const IconAgregar = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+
 const MENU: MenuOption[] = [
   { key: "dashboard", label: "Dashboard", icon: IconDashboard },
   { key: "ventas", label: "Ventas", icon: IconVentas },
+  { key: "programacion", label: "Programación", icon: IconAgregar },
 ];
-
-const STAT_GLOW_COLORS = ["#e3b23c", "#7d0f22", "#f0d48a"];
 
 function formatCurrency(value: number) {
   return value.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-}
-
-function StatCard({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <BorderGlow
-      className={styles.statGlow}
-      backgroundColor="var(--paper)"
-      borderRadius={10}
-      glowColor="43 70 55"
-      colors={STAT_GLOW_COLORS}
-      glowIntensity={0.8}
-      glowRadius={16}
-      edgeSensitivity={40}
-      coneSpread={35}
-    >
-      <div className={styles.statCard}>
-        <span className={styles.statLabel}>{label}</span>
-        <strong>{value}</strong>
-      </div>
-    </BorderGlow>
-  );
 }
 
 export function Admin() {
@@ -72,6 +77,21 @@ export function Admin() {
   const [dashboard, setDashboard] = useState<DashboardResumen | null>(null);
   const [ventas, setVentas] = useState<VentaResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [funciones, setFunciones] = useState<Funcion[]>([]);
+  const [funcionesLocales, setFuncionesLocales] = useState(getFuncionesLocales());
+
+  const [modoPelicula, setModoPelicula] = useState<"existente" | "nueva">("existente");
+  const [peliculaId, setPeliculaId] = useState<number | "">("");
+  const [salaId, setSalaId] = useState<number | "">("");
+  const [horario, setHorario] = useState("");
+  const [nuevoTitulo, setNuevoTitulo] = useState("");
+  const [nuevaSinopsis, setNuevaSinopsis] = useState("");
+  const [nuevaDuracion, setNuevaDuracion] = useState("100");
+  const [nuevaClasificacion, setNuevaClasificacion] = useState("B");
+  const [nuevoGenero, setNuevoGenero] = useState("");
+  const [nuevoPrecio, setNuevoPrecio] = useState("85");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     api.dashboard()
@@ -85,6 +105,64 @@ export function Admin() {
       .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudieron cargar las ventas."));
   }, []);
 
+  useEffect(() => {
+    api.funciones().then((res) => setFunciones(res.funciones)).catch(() => {});
+    return onLocalDataChange(() => setFuncionesLocales(getFuncionesLocales()));
+  }, []);
+
+  const peliculasExistentes = useMemo(
+    () => Array.from(new Map(funciones.map((f) => [f.pelicula.id, f.pelicula])).values()),
+    [funciones]
+  );
+  const salasExistentes = useMemo(() => {
+    const unicas = Array.from(new Map(funciones.map((f) => [f.sala.id, f.sala])).values());
+    return unicas.length ? unicas : SALAS_POR_DEFECTO;
+  }, [funciones]);
+
+  function resetFormularioPelicula() {
+    setNuevoTitulo("");
+    setNuevaSinopsis("");
+    setNuevaDuracion("100");
+    setNuevaClasificacion("B");
+    setNuevoGenero("");
+    setNuevoPrecio("85");
+  }
+
+  function handleAgregarFuncion(e: FormEvent) {
+    e.preventDefault();
+    setFormError(null);
+    setFormSuccess(null);
+
+    if (!horario) return setFormError("Selecciona fecha y hora de la función.");
+    if (!salaId) return setFormError("Selecciona una sala.");
+
+    let peliculaFinal: Pelicula;
+    if (modoPelicula === "existente") {
+      const encontrada = peliculasExistentes.find((p) => p.id === peliculaId);
+      if (!encontrada) return setFormError("Selecciona una película.");
+      peliculaFinal = encontrada;
+    } else {
+      if (!nuevoTitulo.trim()) return setFormError("Ingresa el título de la película.");
+      if (!nuevoPrecio || Number(nuevoPrecio) <= 0) return setFormError("Ingresa un precio válido.");
+      peliculaFinal = {
+        id: -Date.now(),
+        titulo: nuevoTitulo.trim(),
+        sinopsis: nuevaSinopsis.trim() || null,
+        duracion: Number(nuevaDuracion) || 100,
+        clasificacion: nuevaClasificacion || "B",
+        genero: nuevoGenero.trim() || "General",
+        precio: nuevoPrecio,
+        activa: true,
+      };
+    }
+
+    const sala = salasExistentes.find((s) => s.id === salaId)!;
+    agregarFuncionLocal(peliculaFinal, sala, new Date(horario).toISOString());
+    setFormSuccess(`Función de "${peliculaFinal.titulo}" agregada. Solo visible en este navegador.`);
+    setHorario("");
+    if (modoPelicula === "nueva") resetFormularioPelicula();
+  }
+
   const indicadores = dashboard?.indicadores;
   const porPelicula = dashboard?.porPelicula ?? [];
   const porDia = [...(dashboard?.porDia ?? [])].reverse();
@@ -94,39 +172,62 @@ export function Admin() {
       menu={MENU}
       active={vista}
       onSelect={setVista}
-      title={vista === "dashboard" ? "Dashboard" : "Ventas"}
-      subtitle={vista === "dashboard" ? "Indicadores de operación en tiempo real." : "Historial completo de transacciones."}
+      title={vista === "dashboard" ? "Dashboard" : vista === "ventas" ? "Ventas" : "Programación"}
+      subtitle={
+        vista === "dashboard" ? "Indicadores de operación en tiempo real." :
+        vista === "ventas" ? "Historial completo de transacciones." :
+        "Agrega funciones y horarios a la cartelera."
+      }
     >
       {error && <div className={styles.error}>{error}</div>}
 
       {dashboard && (
         <div className={styles.reportBar}>
-          <button
-            className={styles.reportBtn}
-            onClick={() => generarReporteDashboardPdf(dashboard, ventas ?? [])}
-          >
-            Descargar reporte PDF
+          <button className={styles.reportBtnGhost} onClick={() => generarReporteVentasPdf(ventas ?? [])}>
+            Reporte de ventas
+          </button>
+          <button className={styles.reportBtnGhost} onClick={() => generarReporteIngresosPdf(dashboard)}>
+            Reporte de ingresos
+          </button>
+          <button className={styles.reportBtnGhost} onClick={() => generarReportePorPeliculaPdf(dashboard)}>
+            Reporte por película
+          </button>
+          <button className={styles.reportBtnGhost} onClick={() => generarReportePorDiaPdf(dashboard)}>
+            Reporte por día
+          </button>
+          <button className={styles.reportBtn} onClick={() => generarReporteDashboardPdf(dashboard, ventas ?? [])}>
+            Reporte completo
           </button>
         </div>
       )}
 
       {vista === "dashboard" && indicadores && (
         <>
-          <div className={styles.statsGrid}>
-            <StatCard
-              label="Ventas totales"
-              value={<>$<CountUp to={Number(indicadores.ventas_totales)} separator="," duration={1.2} /> MXN</>}
-            />
-            <StatCard label="Boletos vendidos" value={<CountUp to={Number(indicadores.boletos_vendidos)} duration={1.2} />} />
-            <StatCard label="Película más vendida" value={<span style={{ fontSize: 18 }}>{indicadores.pelicula_mas_vendida || "—"}</span>} />
-            <StatCard
-              label="Descuentos otorgados"
-              value={<>$<CountUp to={Number(indicadores.descuentos_aplicados)} separator="," duration={1.2} /> MXN</>}
-            />
-            <StatCard label="Clientes registrados" value={<CountUp to={Number(indicadores.total_clientes)} duration={1} />} />
-            <StatCard label="Compras con membresía" value={<CountUp to={Number(indicadores.compras_con_membresia)} duration={1} />} />
-            <StatCard label="Compras sin membresía" value={<CountUp to={Number(indicadores.compras_sin_membresia)} duration={1} />} />
-          </div>
+          <MagicBento
+            glowColor="227, 178, 60"
+            enableMagnetism
+            clickEffect
+            items={[
+              {
+                label: "Ventas totales",
+                span: "hero",
+                value: <>$<CountUp to={Number(indicadores.ventas_totales)} separator="," duration={1.2} /> MXN</>,
+              },
+              { label: "Boletos vendidos", value: <CountUp to={Number(indicadores.boletos_vendidos)} duration={1.2} /> },
+              {
+                label: "Descuentos otorgados",
+                value: <>$<CountUp to={Number(indicadores.descuentos_aplicados)} separator="," duration={1.2} /> MXN</>,
+              },
+              {
+                label: "Película más vendida",
+                span: "wide",
+                value: <span style={{ fontSize: 20 }}>{indicadores.pelicula_mas_vendida || "—"}</span>,
+              },
+              { label: "Clientes registrados", value: <CountUp to={Number(indicadores.total_clientes)} duration={1} /> },
+              { label: "Compras con membresía", value: <CountUp to={Number(indicadores.compras_con_membresia)} duration={1} /> },
+              { label: "Compras sin membresía", value: <CountUp to={Number(indicadores.compras_sin_membresia)} duration={1} /> },
+            ]}
+          />
 
           <div className={styles.chartsGrid}>
             <div className={styles.chartCard}>
@@ -214,33 +315,183 @@ export function Admin() {
       {vista === "ventas" && (
         <div className={styles.tableCard}>
           <h3>Historial de ventas</h3>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Código</th><th>Cliente</th><th>Película</th><th>Sala</th>
-                <th>Boletos</th><th>Membresía</th><th>Total</th><th>Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!ventas || ventas.length === 0 ? (
-                <tr><td colSpan={8} className={styles.empty}>{ventas ? "No existen ventas registradas." : "Cargando…"}</td></tr>
-              ) : (
-                ventas.map((venta) => (
-                  <tr key={venta.id}>
-                    <td>{venta.codigo}</td>
-                    <td>{venta.cliente_nombre}</td>
-                    <td>{venta.funcion.pelicula.titulo}</td>
-                    <td>{venta.funcion.sala.nombre}</td>
-                    <td>{venta.cantidad}</td>
-                    <td>{venta.con_membresia ? "Sí" : "No"}</td>
-                    <td>{formatCurrency(Number(venta.total))}</td>
-                    <td>{new Date(venta.fecha).toLocaleDateString("es-MX")}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          <div className={styles.tableScroll}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Código</th><th>Cliente</th><th>Película</th><th>Sala</th>
+                  <th>Boletos</th><th>Membresía</th><th>Total</th><th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!ventas || ventas.length === 0 ? (
+                  <tr><td colSpan={8} className={styles.empty}>{ventas ? "No existen ventas registradas." : "Cargando…"}</td></tr>
+                ) : (
+                  ventas.map((venta) => (
+                    <tr key={venta.id}>
+                      <td>{venta.codigo}</td>
+                      <td>{venta.cliente_nombre}</td>
+                      <td>{venta.funcion.pelicula.titulo}</td>
+                      <td>{venta.funcion.sala.nombre}</td>
+                      <td>{venta.cantidad}</td>
+                      <td>{venta.con_membresia ? "Sí" : "No"}</td>
+                      <td>{formatCurrency(Number(venta.total))}</td>
+                      <td>{new Date(venta.fecha).toLocaleDateString("es-MX")}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
+
+      {vista === "programacion" && (
+        <>
+          <div className={styles.notice}>
+            Estas funciones solo se guardan en este navegador (no en el servidor real). Para que sean
+            visibles y comprables para todos, tu compañero de backend debe agregar endpoints
+            <code> POST /api/admin/peliculas</code> y <code>POST /api/admin/funciones</code>.
+          </div>
+
+          {formSuccess && <div className={styles.success}>{formSuccess}</div>}
+          {formError && <div className={styles.error}>{formError}</div>}
+
+          <div className={styles.tableCard}>
+            <h3>Agregar función</h3>
+            <form onSubmit={handleAgregarFuncion} className={styles.progForm}>
+              <div className={styles.progToggle}>
+                <button
+                  type="button"
+                  className={modoPelicula === "existente" ? styles.progToggleActive : styles.progToggleBtn}
+                  onClick={() => setModoPelicula("existente")}
+                >
+                  Película existente
+                </button>
+                <button
+                  type="button"
+                  className={modoPelicula === "nueva" ? styles.progToggleActive : styles.progToggleBtn}
+                  onClick={() => setModoPelicula("nueva")}
+                >
+                  Película nueva
+                </button>
+              </div>
+
+              {modoPelicula === "existente" ? (
+                <div className={styles.field}>
+                  <label>Película</label>
+                  <select value={peliculaId} onChange={(e) => setPeliculaId(Number(e.target.value))}>
+                    <option value="">Selecciona una película…</option>
+                    {peliculasExistentes.map((p) => (
+                      <option key={p.id} value={p.id}>{p.titulo}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className={styles.formGrid}>
+                  <div className={styles.field}>
+                    <label>Título</label>
+                    <input value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Género</label>
+                    <input value={nuevoGenero} onChange={(e) => setNuevoGenero(e.target.value)} placeholder="Acción, comedia…" />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Duración (min)</label>
+                    <input type="number" min={1} value={nuevaDuracion} onChange={(e) => setNuevaDuracion(e.target.value)} />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Clasificación</label>
+                    <select value={nuevaClasificacion} onChange={(e) => setNuevaClasificacion(e.target.value)}>
+                      {["A", "B", "B15", "C", "D"].map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}>
+                    <label>Precio</label>
+                    <input type="number" min={1} step="0.5" value={nuevoPrecio} onChange={(e) => setNuevoPrecio(e.target.value)} />
+                  </div>
+                  <div className={`${styles.field} ${styles.fieldWide}`}>
+                    <label>Sinopsis</label>
+                    <input value={nuevaSinopsis} onChange={(e) => setNuevaSinopsis(e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              <div className={styles.formGrid}>
+                <div className={styles.field}>
+                  <label>Sala</label>
+                  <select value={salaId} onChange={(e) => setSalaId(Number(e.target.value))}>
+                    <option value="">Selecciona una sala…</option>
+                    {salasExistentes.map((s) => (
+                      <option key={s.id} value={s.id}>{s.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.field}>
+                  <label>Fecha y hora</label>
+                  <input type="datetime-local" value={horario} onChange={(e) => setHorario(e.target.value)} />
+                </div>
+              </div>
+
+              <button type="submit" className={styles.reportBtn}>Agregar función</button>
+            </form>
+          </div>
+
+          <div className={styles.tableCard}>
+            <div className={styles.cleanupHeader}>
+              <div>
+                <h3>Limpiar datos de prueba</h3>
+                <p className={styles.cleanupHint}>
+                  Borra las funciones, compras y asientos ocupados que solo existen en este navegador (no afecta las ventas reales del servidor).
+                </p>
+              </div>
+              <button
+                type="button"
+                className={styles.removeBtn}
+                onClick={() => {
+                  if (confirm("¿Borrar todas las funciones y compras de prueba guardadas en este navegador?")) {
+                    limpiarDatosLocales();
+                    setFormSuccess("Datos de prueba eliminados.");
+                    setFormError(null);
+                  }
+                }}
+              >
+                Limpiar compras de prueba
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.tableCard}>
+            <h3>Funciones agregadas localmente ({funcionesLocales.length})</h3>
+            {funcionesLocales.length === 0 ? (
+              <p className={styles.empty}>Aún no has agregado funciones.</p>
+            ) : (
+              <div className={styles.tableScroll}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr><th>Película</th><th>Sala</th><th>Horario</th><th>Precio</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {funcionesLocales.map((f) => (
+                      <tr key={f.id}>
+                        <td>{f.pelicula.titulo}</td>
+                        <td>{f.sala.nombre}</td>
+                        <td>{new Date(f.horario).toLocaleString("es-MX")}</td>
+                        <td>{formatCurrency(Number(f.pelicula.precio))}</td>
+                        <td>
+                          <button type="button" className={styles.removeBtn} onClick={() => eliminarFuncionLocal(f.id)}>
+                            Quitar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </AppShell>
   );

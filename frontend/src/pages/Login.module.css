@@ -44,6 +44,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+  min-width: 0;
 }
 
 .brand {
@@ -54,10 +55,11 @@
 }
 
 .brandTitle {
-  font-size: 72px;
-  font-weight: 700;
+  font-size: clamp(42px, 12vw, 140px);
+  font-weight: 600;
   letter-spacing: 0.06em;
-  margin: 0;
+  margin: 10px 0 0;
+  max-width: 100%;
 }
 
 .brandRevealed {

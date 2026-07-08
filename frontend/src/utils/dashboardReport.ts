@@ -11,6 +11,10 @@ function formatCurrency(value: number) {
   return value.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 }
 
+function fechaHoy() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function drawHeader(doc: jsPDF, subtitle: string) {
   doc.setFillColor(...VELVET);
   doc.rect(0, 0, 210, 22, "F");
@@ -44,15 +48,7 @@ function drawTableRow(
   cols.forEach((c) => doc.text(c.text, c.x, y, { align: c.align ?? "left" }));
 }
 
-export function generarReporteDashboardPdf(dashboard: DashboardResumen, ventas: VentaResumen[]) {
-  const doc = new jsPDF();
-  const fecha = new Date().toLocaleString("es-MX");
-  drawHeader(doc, `Reporte del Dashboard · ${fecha}`);
-
-  let y = 36;
-  drawSectionTitle(doc, "Indicadores generales", y);
-  y += 10;
-
+function drawIndicadores(doc: jsPDF, dashboard: DashboardResumen, y: number) {
   const ind = dashboard.indicadores;
   const indicadores: [string, string][] = [
     ["Ventas totales", formatCurrency(Number(ind.ventas_totales))],
@@ -79,7 +75,256 @@ export function generarReporteDashboardPdf(dashboard: DashboardResumen, ventas: 
     doc.text(value, x, rowY + 5.5);
   });
 
-  y += Math.ceil(indicadores.length / 2) * 14 + 8;
+  return y + Math.ceil(indicadores.length / 2) * 14 + 8;
+}
+
+/** 1. Reporte de ventas: historial completo de transacciones */
+export function generarReporteVentasPdf(ventas: VentaResumen[]) {
+  const doc = new jsPDF();
+  const fecha = new Date().toLocaleString("es-MX");
+  drawHeader(doc, `Reporte de ventas · ${fecha}`);
+
+  let y = 36;
+  drawSectionTitle(doc, "Historial de ventas", y);
+  y += 9;
+  drawTableRow(
+    doc,
+    [
+      { text: "CÓDIGO", x: 15 },
+      { text: "CLIENTE", x: 45 },
+      { text: "PELÍCULA", x: 90 },
+      { text: "BOLETOS", x: 150, align: "right" },
+      { text: "TOTAL", x: 195, align: "right" },
+    ],
+    y,
+    true
+  );
+  y += 3;
+  doc.setDrawColor(...LINE);
+  doc.line(15, y, 195, y);
+  y += 6;
+
+  ventas.forEach((v) => {
+    if (y > 280) {
+      doc.addPage();
+      drawHeader(doc, `Reporte de ventas · ${fecha}`);
+      y = 36;
+    }
+    drawTableRow(
+      doc,
+      [
+        { text: v.codigo, x: 15 },
+        { text: v.cliente_nombre.slice(0, 20), x: 45 },
+        { text: v.funcion.pelicula.titulo.slice(0, 26), x: 90 },
+        { text: String(v.cantidad), x: 150, align: "right" },
+        { text: formatCurrency(Number(v.total)), x: 195, align: "right" },
+      ],
+      y
+    );
+    y += 7;
+  });
+
+  doc.save(`reporte-ventas-${fechaHoy()}.pdf`);
+}
+
+/** 2. Reporte de ingresos: ingresos totales por día */
+export function generarReporteIngresosPdf(dashboard: DashboardResumen) {
+  const doc = new jsPDF();
+  const fecha = new Date().toLocaleString("es-MX");
+  drawHeader(doc, `Reporte de ingresos · ${fecha}`);
+
+  let y = 36;
+  drawSectionTitle(doc, "Resumen de ingresos", y);
+  y += 10;
+  const ind = dashboard.indicadores;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...MUTED);
+  doc.text("INGRESOS TOTALES", 15, y);
+  doc.text("DESCUENTOS OTORGADOS", 110, y);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(...VELVET);
+  doc.text(formatCurrency(Number(ind.ventas_totales)), 15, y + 8);
+  doc.text(formatCurrency(Number(ind.descuentos_aplicados)), 110, y + 8);
+  y += 24;
+
+  drawSectionTitle(doc, "Ingresos por día", y);
+  y += 9;
+  drawTableRow(
+    doc,
+    [
+      { text: "DÍA", x: 15 },
+      { text: "COMPRAS", x: 110, align: "right" },
+      { text: "BOLETOS", x: 145, align: "right" },
+      { text: "INGRESOS", x: 195, align: "right" },
+    ],
+    y,
+    true
+  );
+  y += 3;
+  doc.setDrawColor(...LINE);
+  doc.line(15, y, 195, y);
+  y += 6;
+
+  dashboard.porDia.forEach((d) => {
+    if (y > 275) {
+      doc.addPage();
+      drawHeader(doc, `Reporte de ingresos · ${fecha}`);
+      y = 36;
+    }
+    drawTableRow(
+      doc,
+      [
+        { text: d.dia, x: 15 },
+        { text: String(d.total_compras), x: 110, align: "right" },
+        { text: String(d.total_boletos), x: 145, align: "right" },
+        { text: formatCurrency(Number(d.total_ingresos)), x: 195, align: "right" },
+      ],
+      y
+    );
+    y += 7;
+  });
+
+  doc.save(`reporte-ingresos-${fechaHoy()}.pdf`);
+}
+
+/** 3. Reporte por película */
+export function generarReportePorPeliculaPdf(dashboard: DashboardResumen) {
+  const doc = new jsPDF();
+  const fecha = new Date().toLocaleString("es-MX");
+  drawHeader(doc, `Reporte por película · ${fecha}`);
+
+  let y = 36;
+  drawSectionTitle(doc, "Ventas por película", y);
+  y += 9;
+  drawTableRow(
+    doc,
+    [
+      { text: "PELÍCULA", x: 15 },
+      { text: "COMPRAS", x: 120, align: "right" },
+      { text: "BOLETOS", x: 155, align: "right" },
+      { text: "INGRESOS", x: 195, align: "right" },
+    ],
+    y,
+    true
+  );
+  y += 3;
+  doc.setDrawColor(...LINE);
+  doc.line(15, y, 195, y);
+  y += 6;
+
+  dashboard.porPelicula.forEach((p) => {
+    if (y > 275) {
+      doc.addPage();
+      drawHeader(doc, `Reporte por película · ${fecha}`);
+      y = 36;
+    }
+    drawTableRow(
+      doc,
+      [
+        { text: p.pelicula, x: 15 },
+        { text: String(p.num_compras), x: 120, align: "right" },
+        { text: String(p.boletos_vendidos), x: 155, align: "right" },
+        { text: formatCurrency(Number(p.ingresos_totales)), x: 195, align: "right" },
+      ],
+      y
+    );
+    y += 7;
+  });
+
+  y += 8;
+  drawSectionTitle(doc, "Ventas por sala", y);
+  y += 9;
+  drawTableRow(
+    doc,
+    [
+      { text: "SALA", x: 15 },
+      { text: "BOLETOS", x: 145, align: "right" },
+      { text: "INGRESOS", x: 195, align: "right" },
+    ],
+    y,
+    true
+  );
+  y += 3;
+  doc.line(15, y, 195, y);
+  y += 6;
+
+  dashboard.porSala.forEach((s) => {
+    drawTableRow(
+      doc,
+      [
+        { text: s.sala, x: 15 },
+        { text: String(s.boletos_vendidos), x: 145, align: "right" },
+        { text: formatCurrency(Number(s.ingresos_totales)), x: 195, align: "right" },
+      ],
+      y
+    );
+    y += 7;
+  });
+
+  doc.save(`reporte-por-pelicula-${fechaHoy()}.pdf`);
+}
+
+/** 4. Reporte por día */
+export function generarReportePorDiaPdf(dashboard: DashboardResumen) {
+  const doc = new jsPDF();
+  const fecha = new Date().toLocaleString("es-MX");
+  drawHeader(doc, `Reporte por día · ${fecha}`);
+
+  let y = 36;
+  drawSectionTitle(doc, "Ventas por día", y);
+  y += 9;
+  drawTableRow(
+    doc,
+    [
+      { text: "DÍA", x: 15 },
+      { text: "COMPRAS", x: 100, align: "right" },
+      { text: "BOLETOS", x: 135, align: "right" },
+      { text: "DESCUENTOS", x: 165, align: "right" },
+      { text: "INGRESOS", x: 195, align: "right" },
+    ],
+    y,
+    true
+  );
+  y += 3;
+  doc.setDrawColor(...LINE);
+  doc.line(15, y, 195, y);
+  y += 6;
+
+  dashboard.porDia.forEach((d) => {
+    if (y > 275) {
+      doc.addPage();
+      drawHeader(doc, `Reporte por día · ${fecha}`);
+      y = 36;
+    }
+    drawTableRow(
+      doc,
+      [
+        { text: d.dia, x: 15 },
+        { text: String(d.total_compras), x: 100, align: "right" },
+        { text: String(d.total_boletos), x: 135, align: "right" },
+        { text: formatCurrency(Number(d.total_descuentos)), x: 165, align: "right" },
+        { text: formatCurrency(Number(d.total_ingresos)), x: 195, align: "right" },
+      ],
+      y
+    );
+    y += 7;
+  });
+
+  doc.save(`reporte-por-dia-${fechaHoy()}.pdf`);
+}
+
+/** 5. Reporte completo del Dashboard (indicadores + todas las secciones) */
+export function generarReporteDashboardPdf(dashboard: DashboardResumen, ventas: VentaResumen[]) {
+  const doc = new jsPDF();
+  const fecha = new Date().toLocaleString("es-MX");
+  drawHeader(doc, `Reporte completo del Dashboard · ${fecha}`);
+
+  let y = 36;
+  drawSectionTitle(doc, "Indicadores generales", y);
+  y += 10;
+  y = drawIndicadores(doc, dashboard, y);
 
   drawSectionTitle(doc, "Ventas por película", y);
   y += 9;
@@ -134,7 +379,7 @@ export function generarReporteDashboardPdf(dashboard: DashboardResumen, ventas: 
   dashboard.porDia.forEach((d) => {
     if (y > 275) {
       doc.addPage();
-      drawHeader(doc, `Reporte del Dashboard · ${fecha}`);
+      drawHeader(doc, `Reporte completo del Dashboard · ${fecha}`);
       y = 36;
     }
     drawTableRow(
@@ -151,7 +396,7 @@ export function generarReporteDashboardPdf(dashboard: DashboardResumen, ventas: 
   });
 
   doc.addPage();
-  drawHeader(doc, `Reporte de ventas · ${fecha}`);
+  drawHeader(doc, `Reporte completo del Dashboard · ${fecha}`);
   y = 36;
   drawSectionTitle(doc, "Historial de ventas", y);
   y += 9;
@@ -174,7 +419,7 @@ export function generarReporteDashboardPdf(dashboard: DashboardResumen, ventas: 
   ventas.forEach((v) => {
     if (y > 280) {
       doc.addPage();
-      drawHeader(doc, `Reporte de ventas · ${fecha}`);
+      drawHeader(doc, `Reporte completo del Dashboard · ${fecha}`);
       y = 36;
     }
     drawTableRow(
@@ -191,5 +436,5 @@ export function generarReporteDashboardPdf(dashboard: DashboardResumen, ventas: 
     y += 7;
   });
 
-  doc.save(`reporte-cinemax-${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`reporte-completo-dashboard-${fechaHoy()}.pdf`);
 }

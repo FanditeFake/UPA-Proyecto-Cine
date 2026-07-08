@@ -14,6 +14,15 @@ import RotatingText from "../../components/RotatingText";
 import { posterDataUri } from "../../utils/poster";
 import { fetchExternalPosters, pickExternalPoster, type ExternalPoster } from "../../utils/externalPosters";
 import { qrToDataUrl } from "../../utils/qrToDataUrl";
+import {
+  getFuncionesLocales,
+  getComprasLocales,
+  generarAsientosLocales,
+  marcarAsientosOcupadosLocal,
+  crearCompraLocal,
+  esFuncionLocal,
+  onLocalDataChange,
+} from "../../utils/localDemoData";
 import type { Asiento, Compra, Funcion, Pelicula } from "../../api/types";
 import styles from "./Cliente.module.css";
 
@@ -81,9 +90,13 @@ export function Cliente() {
   const [externalPosters, setExternalPosters] = useState<ExternalPoster[]>([]);
 
   useEffect(() => {
-    api.funciones()
-      .then((res) => setFunciones(res.funciones))
-      .catch((err) => setFuncionesError(err instanceof ApiError ? err.message : "No se pudieron cargar las funciones."));
+    function cargarFunciones() {
+      api.funciones()
+        .then((res) => setFunciones([...res.funciones, ...getFuncionesLocales()]))
+        .catch((err) => setFuncionesError(err instanceof ApiError ? err.message : "No se pudieron cargar las funciones."));
+    }
+    cargarFunciones();
+    return onLocalDataChange(cargarFunciones);
   }, []);
 
   useEffect(() => {
@@ -97,7 +110,7 @@ export function Cliente() {
   useEffect(() => {
     if (vista === "historial" && !misCompras) {
       api.misCompras()
-        .then((res) => setMisCompras(res.compras))
+        .then((res) => setMisCompras([...getComprasLocales(), ...res.compras]))
         .catch((err) => setHistorialError(err instanceof ApiError ? err.message : "No se pudo cargar tu historial."));
     }
   }, [vista, misCompras]);
@@ -130,6 +143,10 @@ export function Cliente() {
     setSeleccionados([]);
     setPayError(null);
     setPasoCompra("asientos");
+    if (esFuncionLocal(funcion.id)) {
+      setAsientos(generarAsientosLocales(funcion.id));
+      return;
+    }
     try {
       const { asientos } = await api.asientos(funcion.id);
       setAsientos(asientos);
@@ -147,6 +164,10 @@ export function Cliente() {
 
   async function refrescarAsientos() {
     if (!funcionSeleccionada) return;
+    if (esFuncionLocal(funcionSeleccionada.id)) {
+      setAsientos(generarAsientosLocales(funcionSeleccionada.id));
+      return;
+    }
     const { asientos } = await api.asientos(funcionSeleccionada.id);
     setAsientos(asientos);
   }
@@ -178,8 +199,16 @@ export function Cliente() {
 
     setPagando(true);
     try {
-      const { compra } = await api.crearCompra(funcionSeleccionada.id, seleccionados, nombreCliente.trim());
-      setCompra(compra);
+      let compraFinal: Compra;
+      if (esFuncionLocal(funcionSeleccionada.id)) {
+        const asientosElegidos = asientos.filter((a) => seleccionados.includes(a.asiento_id));
+        compraFinal = crearCompraLocal(funcionSeleccionada, asientosElegidos, nombreCliente.trim(), !!usuario?.membresia);
+        marcarAsientosOcupadosLocal(funcionSeleccionada.id, seleccionados);
+      } else {
+        const { compra } = await api.crearCompra(funcionSeleccionada.id, seleccionados, nombreCliente.trim());
+        compraFinal = compra;
+      }
+      setCompra(compraFinal);
       setSeleccionados([]);
       await refrescarAsientos();
       setFuncionSeleccionada(null);
@@ -329,7 +358,7 @@ export function Cliente() {
             <div className={styles.galleryTagline}>
               <span>Cartelera de</span>
               <RotatingText
-                texts={["Estrenos", "Boletos digitales", "Butacas en vivo", "Sin filas"]}
+                texts={["Estrenos", "Compras Online", "Estrenos", "Sin filas"]}
                 mainClassName={styles.rotatingWord}
                 staggerFrom="last"
                 staggerDuration={0.02}
