@@ -7,6 +7,8 @@ import Lightfall from "../components/Lightfall";
 import DecryptedText from "../components/DecryptedText";
 import styles from "./Login.module.css";
 
+const LIGHTFALL_COLORS = ["#e3b23c", "#7d0f22", "#f0d48a"];
+
 export function Login() {
   const [modo, setModo] = useState<"login" | "registro">("login");
   const [brandKey, setBrandKey] = useState(0);
@@ -74,7 +76,7 @@ export function Login() {
     >
       <div className={styles.lightfallBg}>
         <Lightfall
-          colors={["#e3b23c", "#7d0f22", "#f0d48a"]}
+          colors={LIGHTFALL_COLORS}
           backgroundColor="#4a0812"
           speed={0.6}
           streakCount={6}

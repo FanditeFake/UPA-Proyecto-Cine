@@ -400,11 +400,12 @@
   z-index: 61;
   width: 300px;
   max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 190px);
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow: 0 28px 60px -20px rgba(20, 16, 14, 0.5);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .fabHead {
@@ -441,6 +442,30 @@
   text-align: center;
   color: var(--muted);
   font-size: 14px;
+}
+
+.fabTicketSwitcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 16px 0;
+}
+
+.fabTicketChip,
+.fabTicketChipActive {
+  border: 1px solid var(--line);
+  background: var(--cream-dim);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 30px;
+}
+
+.fabTicketChipActive {
+  background: var(--velvet);
+  border-color: var(--velvet);
+  color: #fff;
 }
 
 .fabTicket {

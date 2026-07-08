@@ -24,6 +24,8 @@ import {
   onLocalDataChange,
 } from "../../utils/localDemoData";
 import { AppShell, type MenuOption } from "../../components/AppShell";
+import { IconTicket, IconFilm, IconHistory } from "../../components/icons";
+import { BoletosSection } from "../cliente/BoletosSection";
 import MagicBento from "../../components/MagicBento";
 import CountUp from "../../components/CountUp";
 import AnimatedList from "../../components/AnimatedList";
@@ -66,7 +68,12 @@ const MENU: MenuOption[] = [
   { key: "dashboard", label: "Dashboard", icon: IconDashboard },
   { key: "ventas", label: "Ventas", icon: IconVentas },
   { key: "programacion", label: "Programación", icon: IconAgregar },
+  { key: "catalogo", label: "Comprar boletos", icon: IconTicket },
+  { key: "cartelera", label: "Cartelera", icon: IconFilm },
+  { key: "historial", label: "Historial", icon: IconHistory },
 ];
+
+const VISTAS_CLIENTE = ["catalogo", "cartelera", "historial"];
 
 function formatCurrency(value: number) {
   return value.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -172,16 +179,27 @@ export function Admin() {
       menu={MENU}
       active={vista}
       onSelect={setVista}
-      title={vista === "dashboard" ? "Dashboard" : vista === "ventas" ? "Ventas" : "Programación"}
+      hideHeader={vista === "catalogo"}
+      title={
+        vista === "dashboard" ? "Dashboard" :
+        vista === "ventas" ? "Ventas" :
+        vista === "programacion" ? "Programación" :
+        vista === "cartelera" ? "Cartelera" :
+        vista === "historial" ? "Historial de compras" :
+        "Comprar boletos"
+      }
       subtitle={
         vista === "dashboard" ? "Indicadores de operación en tiempo real." :
         vista === "ventas" ? "Historial completo de transacciones." :
-        "Agrega funciones y horarios a la cartelera."
+        vista === "programacion" ? "Agrega funciones y horarios a la cartelera." :
+        vista === "cartelera" ? "Pasa el cursor sobre una película y toca para ver sus horarios." :
+        vista === "historial" ? "Consulta las compras registradas." :
+        "Compra boletos a nombre de cualquier cliente."
       }
     >
-      {error && <div className={styles.error}>{error}</div>}
+      {vista === "dashboard" && error && <div className={styles.error}>{error}</div>}
 
-      {dashboard && (
+      {vista === "dashboard" && dashboard && (
         <div className={styles.reportBar}>
           <button className={styles.reportBtnGhost} onClick={() => generarReporteVentasPdf(ventas ?? [])}>
             Reporte de ventas
@@ -200,6 +218,8 @@ export function Admin() {
           </button>
         </div>
       )}
+
+      {VISTAS_CLIENTE.includes(vista) && <BoletosSection vista={vista} nombreEditable />}
 
       {vista === "dashboard" && indicadores && (
         <>
