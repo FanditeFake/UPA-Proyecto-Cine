@@ -205,6 +205,22 @@ export function Admin() {
     }
   }
 
+  async function handleEliminarPelicula(pelicula: Pelicula) {
+    if (!confirm(`¿Eliminar "${pelicula.titulo}"? Se borrarán también sus funciones. Solo se permite si no tiene boletos vendidos.`)) {
+      return;
+    }
+    setFormError(null);
+    setFormSuccess(null);
+    try {
+      await api.eliminarPelicula(pelicula.id);
+      setFormSuccess(`Película "${pelicula.titulo}" eliminada.`);
+      cargarProgramacion();
+    } catch (err) {
+      // El backend responde 409 si la película ya tiene boletos vendidos.
+      setFormError(err instanceof ApiError ? err.message : "No se pudo eliminar la película.");
+    }
+  }
+
   const indicadores = dashboard?.indicadores;
   const porPelicula = dashboard?.porPelicula ?? [];
   const porDia = [...(dashboard?.porDia ?? [])].reverse();
@@ -540,6 +556,43 @@ export function Admin() {
                         <td>{f.sala.nombre}</td>
                         <td>{f.horario}</td>
                         <td>{formatCurrency(Number(f.pelicula.precio))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className={styles.tableCard}>
+            <h3>Catálogo de películas ({peliculas.length})</h3>
+            <p className={styles.cleanupHint}>
+              Solo se pueden eliminar películas que no tengan boletos vendidos.
+            </p>
+            {peliculas.length === 0 ? (
+              <p className={styles.empty}>No hay películas en el catálogo.</p>
+            ) : (
+              <div className={styles.tableScroll}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr><th>Película</th><th>Género</th><th>Duración</th><th>Precio</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {peliculas.map((p) => (
+                      <tr key={p.id}>
+                        <td>{p.titulo}</td>
+                        <td>{p.genero}</td>
+                        <td>{p.duracion} min</td>
+                        <td>{formatCurrency(Number(p.precio))}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className={styles.removeBtn}
+                            onClick={() => handleEliminarPelicula(p)}
+                          >
+                            Eliminar
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
