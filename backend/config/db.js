@@ -36,6 +36,14 @@ const sequelize = new Sequelize(
       // muestra, sin confusiones de zona horaria.
       dateStrings: true,
       typeCast: true,
+
+      // SSL: requerido por Azure Database for MySQL (y otros proveedores en la
+      // nube). Se activa con DB_SSL=true en el entorno. En local (Docker) se
+      // deja apagado. Si el proveedor usa un certificado no verificable por la
+      // CA por defecto, se puede poner DB_SSL_REJECT_UNAUTHORIZED=false.
+      ...(process.env.DB_SSL === 'true'
+        ? { ssl: { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } }
+        : {}),
     },
 
     define: {
